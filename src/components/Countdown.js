@@ -86,15 +86,29 @@ const Countdown = ({ onComplete }) => {
 
     tickRef.current = new Audio("/audio/tick.mp3");
     tickRef.current.volume = 0.9;
+    tickRef.current.preload = "auto";
+    tickRef.current.load();
   }, []);
 
   // Toggle sound
   const toggleSound = () => {
-    if (!musicRef.current) return;
+    if (!musicRef.current || !tickRef.current) return;
 
     if (!soundOn) {
+      // Start music
       musicRef.current.play().catch(() => {});
+
+      // Unlock tick (very short play/pause trick for Safari/Chrome)
+      tickRef.current.currentTime = 0;
+      tickRef.current
+        .play()
+        .then(() => {
+          tickRef.current.pause();
+          tickRef.current.currentTime = 0;
+        })
+        .catch(() => {});
     } else {
+      // Stop music
       musicRef.current.pause();
       musicRef.current.currentTime = 0;
     }
@@ -124,13 +138,14 @@ const Countdown = ({ onComplete }) => {
 
       const totalSeconds = Math.floor(diff / 1000);
       const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
-      const minutes = String(
-        Math.floor((totalSeconds % 3600) / 60)
-      ).padStart(2, "0");
+      const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(
+        2,
+        "0",
+      );
       const seconds = String(totalSeconds % 60).padStart(2, "0");
 
-      // Tick only last 10 seconds (if sound ON)
-      if (soundOn && totalSeconds <= 10 && tickRef.current) {
+      // Tick every second when sound is ON
+      if (soundOn && tickRef.current) {
         tickRef.current.currentTime = 0;
         tickRef.current.play().catch(() => {});
       }
@@ -193,9 +208,7 @@ const Countdown = ({ onComplete }) => {
 
           <div className="subtitle">
             Countdown to{" "}
-            <span className="subtitle-strong">
-              02 Feb 2026 • 12:00 AM IST
-            </span>
+            <span className="subtitle-strong">02 Feb 2026 • 12:00 AM IST</span>
           </div>
         </motion.div>
       </motion.div>
