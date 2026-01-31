@@ -4,19 +4,18 @@ import { motion } from "framer-motion";
 // MUST be false for real run
 const TEST_MODE = false;
 
-// IST offset in ms (+05:30)
+// IST offset (+05:30)
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 const getNowISTMs = () => Date.now() + IST_OFFSET_MS;
 
-// Build an IST datetime as timestamp (ms) safely using UTC math
+// Build IST target
 const makeISTTargetMs = (year, month1to12, day, hour = 0, min = 0, sec = 0) => {
-  // Convert IST wall-clock to UTC by subtracting IST offset
-  const utcMs = Date.UTC(year, month1to12 - 1, day, hour, min, sec) - IST_OFFSET_MS;
-  return utcMs + IST_OFFSET_MS; // IST timeline
+  const utcMs =
+    Date.UTC(year, month1to12 - 1, day, hour, min, sec) - IST_OFFSET_MS;
+  return utcMs + IST_OFFSET_MS;
 };
 
 const FloatingHearts = () => {
-  // lightweight “template vibe” background
   const hearts = new Array(18).fill(0).map((_, i) => i);
 
   return (
@@ -56,7 +55,6 @@ const Digit = ({ value }) => (
     key={value}
     initial={{ y: 16, opacity: 0, filter: "blur(6px)" }}
     animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-    exit={{ y: -16, opacity: 0, filter: "blur(6px)" }}
     transition={{ duration: 0.35, ease: "easeOut" }}
   >
     {value}
@@ -67,18 +65,45 @@ const Countdown = ({ onComplete }) => {
   const [hh, setHh] = useState("00");
   const [mm, setMm] = useState("00");
   const [ss, setSs] = useState("00");
+  const [soundOn, setSoundOn] = useState(false);
 
-  const tickRef = useRef(null);
   const completedRef = useRef(false);
 
+  // 🎵 Audio refs
+  const musicRef = useRef(null);
+  const tickRef = useRef(null);
+
   const targetISTMs = useMemo(() => {
-    if (TEST_MODE) return getNowISTMs() + 90 * 1000; // 1.5 min test
-    return makeISTTargetMs(2026, 2, 2, 0, 0, 0); // 02/02/2026 12:00:00 AM IST
+    if (TEST_MODE) return getNowISTMs() + 90 * 1000;
+    return makeISTTargetMs(2026, 2, 2, 0, 0, 0);
   }, []);
 
+  // Init audio once
   useEffect(() => {
-    tickRef.current = new Audio("/audio/tick.mp3");
+    musicRef.current = new Audio("/audio/soft.mp3");
+    musicRef.current.loop = true;
+    musicRef.current.volume = 0.45;
 
+    tickRef.current = new Audio("/audio/tick.mp3");
+    tickRef.current.volume = 0.9;
+  }, []);
+
+  // Toggle sound
+  const toggleSound = () => {
+    if (!musicRef.current) return;
+
+    if (!soundOn) {
+      musicRef.current.play().catch(() => {});
+    } else {
+      musicRef.current.pause();
+      musicRef.current.currentTime = 0;
+    }
+
+    setSoundOn((v) => !v);
+  };
+
+  // Countdown loop
+  useEffect(() => {
     const update = () => {
       const now = getNowISTMs();
       const diff = targetISTMs - now;
@@ -87,6 +112,8 @@ const Countdown = ({ onComplete }) => {
         setHh("00");
         setMm("00");
         setSs("00");
+
+        musicRef.current?.pause();
 
         if (!completedRef.current) {
           completedRef.current = true;
@@ -97,11 +124,13 @@ const Countdown = ({ onComplete }) => {
 
       const totalSeconds = Math.floor(diff / 1000);
       const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
-      const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
+      const minutes = String(
+        Math.floor((totalSeconds % 3600) / 60)
+      ).padStart(2, "0");
       const seconds = String(totalSeconds % 60).padStart(2, "0");
 
-      // tick only last 10 seconds
-      if (totalSeconds <= 10 && tickRef.current) {
+      // Tick only last 10 seconds (if sound ON)
+      if (soundOn && totalSeconds <= 10 && tickRef.current) {
         tickRef.current.currentTime = 0;
         tickRef.current.play().catch(() => {});
       }
@@ -114,11 +143,20 @@ const Countdown = ({ onComplete }) => {
     update();
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
-  }, [onComplete, targetISTMs]);
+  }, [onComplete, targetISTMs, soundOn]);
 
   return (
     <div className="scene">
       <FloatingHearts />
+
+      {/* 🔊 SOUND TOGGLE */}
+      <button
+        className="sound-toggle"
+        onClick={toggleSound}
+        aria-label="Toggle sound"
+      >
+        {soundOn ? "🔈" : "🔇"}
+      </button>
 
       <motion.div
         className="hero"
@@ -128,7 +166,13 @@ const Countdown = ({ onComplete }) => {
       >
         <motion.h1
           className="hero-title"
-          animate={{ filter: ["drop-shadow(0 0 0 rgba(255,105,180,0))", "drop-shadow(0 0 22px rgba(255,105,180,0.55))", "drop-shadow(0 0 0 rgba(255,105,180,0))"] }}
+          animate={{
+            filter: [
+              "drop-shadow(0 0 0 rgba(255,105,180,0))",
+              "drop-shadow(0 0 22px rgba(255,105,180,0.55))",
+              "drop-shadow(0 0 0 rgba(255,105,180,0))",
+            ],
+          }}
           transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
         >
           Almost there Jaaaaaaaaaaaaaaaaaaaaaaaaan💗
@@ -148,13 +192,12 @@ const Countdown = ({ onComplete }) => {
           </div>
 
           <div className="subtitle">
-            Countdown to <span className="subtitle-strong">02 Feb 2026 • 12:00 AM IST</span>
+            Countdown to{" "}
+            <span className="subtitle-strong">
+              02 Feb 2026 • 12:00 AM IST
+            </span>
           </div>
         </motion.div>
-
-        <div className="hint">
-          (Tip: keep this tab open; it will transform at midnight ✨)
-        </div>
       </motion.div>
     </div>
   );

@@ -261,3 +261,34 @@ body {
   .carousel-wrap { grid-template-columns: 48px 1fr 48px; }
   .nav-btn { width: 48px; height: 48px; font-size: 32px; }
 }
+
+.sound-toggle {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 10;
+
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.sound-toggle:hover {
+  transform: scale(1.06);
+}
+
+.sound-toggle:active {
+  transform: scale(0.96);
+}
