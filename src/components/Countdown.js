@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 
+/* ================= CONFIG ================= */
+
 // MUST be false for real run
 const TEST_MODE = false;
 
@@ -15,8 +17,12 @@ const makeISTTargetMs = (year, month1to12, day, hour = 0, min = 0, sec = 0) => {
   return utcMs + IST_OFFSET_MS;
 };
 
-const FloatingHearts = () => {
-  const hearts = new Array(18).fill(0).map((_, i) => i);
+/* ================= UI PIECES ================= */
+
+const FloatingHearts = ({ isMobile }) => {
+  // fewer hearts on mobile for performance
+  const count = isMobile ? 10 : 18;
+  const hearts = new Array(count).fill(0).map((_, i) => i);
 
   return (
     <div className="float-layer" aria-hidden="true">
@@ -61,24 +67,40 @@ const Digit = ({ value }) => (
   </motion.div>
 );
 
+/* ================= MAIN COMPONENT ================= */
+
 const Countdown = ({ onComplete }) => {
+  /* ---------- responsive state ---------- */
+  const [isMobile, setIsMobile] = useState(
+    window.matchMedia("(max-width: 768px)").matches
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const handler = () => setIsMobile(mq.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  /* ---------- time state ---------- */
   const [hh, setHh] = useState("00");
   const [mm, setMm] = useState("00");
   const [ss, setSs] = useState("00");
+
+  /* ---------- sound state ---------- */
   const [soundOn, setSoundOn] = useState(false);
 
-  const completedRef = useRef(false);
-
-  // 🎵 Audio refs
   const musicRef = useRef(null);
   const tickRef = useRef(null);
+  const completedRef = useRef(false);
 
+  /* ---------- target time ---------- */
   const targetISTMs = useMemo(() => {
     if (TEST_MODE) return getNowISTMs() + 90 * 1000;
     return makeISTTargetMs(2026, 2, 2, 0, 0, 0);
   }, []);
 
-  // Init audio once
+  /* ---------- init audio ---------- */
   useEffect(() => {
     musicRef.current = new Audio("/audio/soft.mp3");
     musicRef.current.loop = true;
@@ -90,15 +112,14 @@ const Countdown = ({ onComplete }) => {
     tickRef.current.load();
   }, []);
 
-  // Toggle sound
+  /* ---------- toggle sound ---------- */
   const toggleSound = () => {
     if (!musicRef.current || !tickRef.current) return;
 
     if (!soundOn) {
-      // Start music
       musicRef.current.play().catch(() => {});
 
-      // Unlock tick (very short play/pause trick for Safari/Chrome)
+      // unlock tick
       tickRef.current.currentTime = 0;
       tickRef.current
         .play()
@@ -108,7 +129,6 @@ const Countdown = ({ onComplete }) => {
         })
         .catch(() => {});
     } else {
-      // Stop music
       musicRef.current.pause();
       musicRef.current.currentTime = 0;
     }
@@ -116,11 +136,10 @@ const Countdown = ({ onComplete }) => {
     setSoundOn((v) => !v);
   };
 
-  // Countdown loop
+  /* ---------- countdown loop ---------- */
   useEffect(() => {
     const update = () => {
-      const now = getNowISTMs();
-      const diff = targetISTMs - now;
+      const diff = targetISTMs - getNowISTMs();
 
       if (diff <= 0) {
         setHh("00");
@@ -137,32 +156,28 @@ const Countdown = ({ onComplete }) => {
       }
 
       const totalSeconds = Math.floor(diff / 1000);
-      const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
-      const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(
-        2,
-        "0",
+      setHh(String(Math.floor(totalSeconds / 3600)).padStart(2, "0"));
+      setMm(
+        String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0")
       );
-      const seconds = String(totalSeconds % 60).padStart(2, "0");
+      setSs(String(totalSeconds % 60).padStart(2, "0"));
 
-      // Tick every second when sound is ON
+      // tick every second when sound ON
       if (soundOn && tickRef.current) {
         tickRef.current.currentTime = 0;
         tickRef.current.play().catch(() => {});
       }
-
-      setHh(hours);
-      setMm(minutes);
-      setSs(seconds);
     };
 
     update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
   }, [onComplete, targetISTMs, soundOn]);
 
+  /* ---------- render ---------- */
   return (
     <div className="scene">
-      <FloatingHearts />
+      <FloatingHearts isMobile={isMobile} />
 
       {/* 🔊 SOUND TOGGLE */}
       <button
@@ -208,7 +223,9 @@ const Countdown = ({ onComplete }) => {
 
           <div className="subtitle">
             Countdown to{" "}
-            <span className="subtitle-strong">02 Feb 2026 • 12:00 AM IST</span>
+            <span className="subtitle-strong">
+              02 Feb 2026 • 12:00 AM IST
+            </span>
           </div>
         </motion.div>
       </motion.div>

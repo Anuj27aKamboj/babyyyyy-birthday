@@ -1,4 +1,11 @@
 /* ===== RESET ===== */
+:root{
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body, #root { height: 100%; }
 
@@ -7,8 +14,20 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
   background: radial-gradient(circle at top, rgba(255, 125, 195, 0.9), rgba(18, 6, 28, 1));
   color: #fff;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
+
+.app-root,
+.scene,
+.reveal-wrap {
+  padding:
+    calc(12px + var(--safe-top))
+    calc(12px + var(--safe-right))
+    calc(12px + var(--safe-bottom))
+    calc(12px + var(--safe-left));
+}
+
 
 .app-root {
   height: 100%;
@@ -18,7 +37,7 @@ body {
 /* ===== COUNTDOWN SCENE ===== */
 .scene {
   position: relative;
-  height: 100%;
+  min-height: 100%;
   width: 100%;
   display: grid;
   place-items: center;
@@ -121,12 +140,14 @@ body {
 
 /* ===== REVEAL VIEW ===== */
 .reveal-wrap {
-  height: 100%;
+  min-height: 100%;
   width: 100%;
   display: grid;
-  place-items: center;
-  padding: 26px 18px;
+  justify-items: center;
+  align-content: start; /* IMPORTANT: don't vertically center on short screens */
   gap: 18px;
+  padding-top: 8px;
+  padding-bottom: 18px;
 }
 
 .reveal-title {
@@ -253,15 +274,6 @@ body {
   white-space: pre-line;
 }
 
-
-/* ===== MOBILE ===== */
-@media (max-width: 720px) {
-  .digit { min-width: 70px; height: 82px; }
-  .slide img { height: 190px; }
-  .carousel-wrap { grid-template-columns: 48px 1fr 48px; }
-  .nav-btn { width: 48px; height: 48px; font-size: 32px; }
-}
-
 .sound-toggle {
   position: fixed;
   top: 18px;
@@ -291,4 +303,123 @@ body {
 
 .sound-toggle:active {
   transform: scale(0.96);
+}
+
+/* ===== MOBILE (single source of truth) ===== */
+@media (max-width: 768px) {
+  /* Countdown */
+  .hero {
+    width: 100%;
+    padding: 0 10px;
+    gap: 14px;
+  }
+
+  .hero-title {
+    font-size: clamp(22px, 6.5vw, 34px);
+  }
+
+  .countdown-card {
+    width: 94vw;
+    padding: 16px 12px;
+    border-radius: 20px;
+  }
+
+  .time-row {
+    gap: 8px;
+  }
+
+  .digit {
+    min-width: 60px;
+    height: 72px;
+    border-radius: 16px;
+    font-size: clamp(28px, 9vw, 44px);
+    letter-spacing: 0.08em;
+  }
+
+  .colon {
+    font-size: clamp(26px, 8vw, 36px);
+    transform: translateY(-2px);
+  }
+
+  .subtitle,
+  .hint {
+    font-size: 12px;
+    padding: 0 6px;
+    text-align: center;
+  }
+
+  /* Reveal page */
+  .reveal-wrap {
+    padding-top: 6px;
+    padding-bottom: 18px;
+    gap: 14px;
+  }
+
+  /* Carousel */
+  .carousel-wrap {
+    width: 94vw;
+    grid-template-columns: 44px 1fr 44px;
+    gap: 8px;
+  }
+
+  .carousel-glass {
+    padding: 12px;
+    border-radius: 20px;
+  }
+
+  .track {
+    gap: 12px;
+  }
+
+  /* 1-up carousel on mobile */
+  .slide {
+    flex: 0 0 100%;
+    border-radius: 16px;
+  }
+
+  .slide img {
+    height: 190px;
+  }
+
+  .nav-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    font-size: 28px;
+  }
+
+  /* Message */
+  .message-glass {
+    width: 94vw;
+    padding: 14px;
+    border-radius: 20px;
+  }
+
+  .beauty-message {
+    font-size: clamp(18px, 5.2vw, 26px);
+    line-height: 1.6;
+    padding: 0 4px;
+    text-align: center;
+  }
+
+  /* Sound button (notch-safe) */
+  .sound-toggle {
+    top: calc(12px + var(--safe-top));
+    right: calc(12px + var(--safe-right));
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 360px) {
+  .digit {
+    min-width: 54px;
+    height: 66px;
+  }
+
+  .slide img {
+    height: 170px;
+  }
 }
