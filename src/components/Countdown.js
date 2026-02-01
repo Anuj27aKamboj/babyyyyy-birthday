@@ -20,7 +20,6 @@ const makeISTTargetMs = (year, month1to12, day, hour = 0, min = 0, sec = 0) => {
 /* ================= UI PIECES ================= */
 
 const FloatingHearts = ({ isMobile }) => {
-  // fewer hearts on mobile for performance
   const count = isMobile ? 10 : 18;
   const hearts = new Array(count).fill(0).map((_, i) => i);
 
@@ -70,6 +69,10 @@ const Digit = ({ value }) => (
 /* ================= MAIN COMPONENT ================= */
 
 const Countdown = ({ onComplete }) => {
+  // stop tick forever after finish
+  const tickEnabledRef = useRef(true);
+  const completedRef = useRef(false);
+
   /* ---------- responsive state ---------- */
   const [isMobile, setIsMobile] = useState(
     window.matchMedia("(max-width: 768px)").matches
@@ -92,11 +95,10 @@ const Countdown = ({ onComplete }) => {
 
   const musicRef = useRef(null);
   const tickRef = useRef(null);
-  const completedRef = useRef(false);
 
   /* ---------- target time ---------- */
   const targetISTMs = useMemo(() => {
-    if (TEST_MODE) return getNowISTMs() + 90 * 1000;
+    if (TEST_MODE) return getNowISTMs() + 5 * 1000;
     return makeISTTargetMs(2026, 2, 2, 0, 0, 0);
   }, []);
 
@@ -117,9 +119,10 @@ const Countdown = ({ onComplete }) => {
     if (!musicRef.current || !tickRef.current) return;
 
     if (!soundOn) {
+      // Start music (keeps playing forever unless user turns off)
       musicRef.current.play().catch(() => {});
 
-      // unlock tick
+      // Unlock tick for Safari/Chrome (user gesture)
       tickRef.current.currentTime = 0;
       tickRef.current
         .play()
@@ -129,8 +132,12 @@ const Countdown = ({ onComplete }) => {
         })
         .catch(() => {});
     } else {
+      // User explicitly turned sound OFF
       musicRef.current.pause();
       musicRef.current.currentTime = 0;
+
+      tickRef.current.pause();
+      tickRef.current.currentTime = 0;
     }
 
     setSoundOn((v) => !v);
@@ -141,12 +148,21 @@ const Countdown = ({ onComplete }) => {
     const update = () => {
       const diff = targetISTMs - getNowISTMs();
 
+      // FINISH
       if (diff <= 0) {
         setHh("00");
         setMm("00");
         setSs("00");
 
-        musicRef.current?.pause();
+        // stop tick immediately + permanently
+        tickEnabledRef.current = false;
+        if (tickRef.current) {
+          tickRef.current.pause();
+          tickRef.current.currentTime = 0;
+        }
+
+        // DO NOT stop music (requirement)
+        // musicRef.current keeps playing if soundOn is true
 
         if (!completedRef.current) {
           completedRef.current = true;
@@ -157,13 +173,11 @@ const Countdown = ({ onComplete }) => {
 
       const totalSeconds = Math.floor(diff / 1000);
       setHh(String(Math.floor(totalSeconds / 3600)).padStart(2, "0"));
-      setMm(
-        String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0")
-      );
+      setMm(String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0"));
       setSs(String(totalSeconds % 60).padStart(2, "0"));
 
-      // tick every second when sound ON
-      if (soundOn && tickRef.current) {
+      // tick every second only while countdown running + sound ON
+      if (soundOn && tickEnabledRef.current && tickRef.current) {
         tickRef.current.currentTime = 0;
         tickRef.current.play().catch(() => {});
       }
@@ -223,9 +237,7 @@ const Countdown = ({ onComplete }) => {
 
           <div className="subtitle">
             Countdown to{" "}
-            <span className="subtitle-strong">
-              02 Feb 2026 • 12:00 AM IST
-            </span>
+            <span className="subtitle-strong">02 Feb 2026 • 12:00 AM IST</span>
           </div>
         </motion.div>
       </motion.div>

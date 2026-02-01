@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, useMotionValue, animate } from "framer-motion";
 
 const GalleryCarousel = () => {
-  // Images (public paths)
   const images = useMemo(
     () => [
       "/gallery/1.jpg",
@@ -11,11 +10,17 @@ const GalleryCarousel = () => {
       "/gallery/4.jpg",
       "/gallery/5.jpg",
       "/gallery/6.jpg",
+      "/gallery/7.jpg",
+      "/gallery/8.jpg",
+      "/gallery/9.jpg",
+      "/gallery/10.jpg",
+      "/gallery/11.jpg",
+      "/gallery/12.jpg",
     ],
     []
   );
 
-  /* ---------- responsive state ---------- */
+  /* ---------- responsive ---------- */
   const [isMobile, setIsMobile] = useState(
     window.matchMedia("(max-width: 768px)").matches
   );
@@ -27,47 +32,101 @@ const GalleryCarousel = () => {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  /* ---------- carousel config ---------- */
   const visible = isMobile ? 1 : 3;
   const step = isMobile ? 100 : 34;
 
-  const [index, setIndex] = useState(0);
+  /* ---------- infinite track ---------- */
+  const extended = useMemo(() => {
+    const head = images.slice(0, visible);
+    const tail = images.slice(images.length - visible);
+    return [...tail, ...images, ...head];
+  }, [images, visible]);
 
-  const maxIndex = Math.max(0, images.length - visible);
+  const [index, setIndex] = useState(visible);
+  const [noAnim, setNoAnim] = useState(false);
 
-  // Clamp index when screen size changes
+  const dragX = useMotionValue(0);
+
+  /* ---------- reset on layout change ---------- */
   useEffect(() => {
-    setIndex((i) => Math.min(i, maxIndex));
-  }, [maxIndex]);
+    setNoAnim(true);
+    setIndex(visible);
+    dragX.set(0);
+    requestAnimationFrame(() => setNoAnim(false));
+  }, [visible, dragX]);
 
-  /* ---------- navigation ---------- */
-  const goLeft = () => setIndex((i) => Math.max(0, i - 1));
-  const goRight = () => setIndex((i) => Math.min(maxIndex, i + 1));
+  /* ---------- infinite correction ---------- */
+  const normalize = () => {
+    const first = visible;
+    const last = visible + images.length - 1;
 
-  /* ---------- render ---------- */
+    if (index > last) {
+      setNoAnim(true);
+      setIndex(first);
+      dragX.set(0);
+      requestAnimationFrame(() => setNoAnim(false));
+    }
+
+    if (index < first) {
+      setNoAnim(true);
+      setIndex(last);
+      dragX.set(0);
+      requestAnimationFrame(() => setNoAnim(false));
+    }
+  };
+
+  /* ---------- arrows ---------- */
+  const next = () => setIndex((i) => i + 1);
+  const prev = () => setIndex((i) => i - 1);
+
+  /* ---------- swipe ---------- */
+  const onDragEnd = (_e, info) => {
+    if (!isMobile) return;
+
+    const offset = info.offset.x;
+    const velocity = info.velocity.x;
+
+    const swipe = Math.abs(offset) * Math.abs(velocity);
+    const DIST = 60;
+    const POWER = 700;
+
+    if (offset < -DIST || swipe > POWER) next();
+    else if (offset > DIST || swipe > POWER) prev();
+
+    animate(dragX, 0, { type: "spring", stiffness: 260, damping: 26 });
+  };
+
+  /* ---------- focus slide ---------- */
+  const center = isMobile ? index : index + 1;
+
   return (
     <div className="carousel-wrap">
-      <button
-        className="nav-btn left"
-        onClick={goLeft}
-        disabled={index === 0}
-        aria-label="Previous images"
-      >
+      <button className="nav-btn left" onClick={prev} aria-label="Previous">
         ‹
       </button>
 
       <div className="carousel-glass">
         <motion.div
           className="track"
+          style={{ x: dragX }}
+          drag={isMobile ? "x" : false}
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.25}
+          onDragEnd={onDragEnd}
           animate={{ x: `-${index * step}%` }}
-          transition={{ type: "spring", stiffness: 120, damping: 22 }}
+          transition={
+            noAnim
+              ? { duration: 0 }
+              : { type: "spring", stiffness: 120, damping: 22 }
+          }
+          onAnimationComplete={normalize}
         >
-          {images.map((src, i) => (
+          {extended.map((src, i) => (
             <motion.div
-              className="slide"
-              key={src}
-              whileHover={!isMobile ? { scale: 1.02 } : undefined}
-              transition={{ duration: 0.2 }}
+              key={`${src}-${i}`}
+              className={`slide ${
+                i === center ? "is-center" : "is-side"
+              }`}
             >
               <img src={src} alt={`memory-${i + 1}`} />
             </motion.div>
@@ -75,12 +134,7 @@ const GalleryCarousel = () => {
         </motion.div>
       </div>
 
-      <button
-        className="nav-btn right"
-        onClick={goRight}
-        disabled={index === maxIndex}
-        aria-label="Next images"
-      >
+      <button className="nav-btn right" onClick={next} aria-label="Next">
         ›
       </button>
     </div>
