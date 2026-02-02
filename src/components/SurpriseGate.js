@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -12,7 +12,7 @@ const SurpriseGate = ({ onYes }) => {
   const [yesScale, setYesScale] = useState(1);
   const [noPos, setNoPos] = useState({ x: 12, y: 70 });
 
-  // YES grows when clicking anywhere except YES
+  /* ---------------- YES grows on any click except YES ---------------- */
   useEffect(() => {
     const handleDocClick = (e) => {
       if (yesBtnRef.current && yesBtnRef.current.contains(e.target)) return;
@@ -23,7 +23,8 @@ const SurpriseGate = ({ onYes }) => {
     return () => document.removeEventListener("click", handleDocClick, true);
   }, []);
 
-  const getBounds = () => {
+  /* ---------------- bounds helper (stable) ---------------- */
+  const getBounds = useCallback(() => {
     const arena = arenaRef.current;
     const noBtn = noBtnRef.current;
     if (!arena || !noBtn) return null;
@@ -37,11 +38,12 @@ const SurpriseGate = ({ onYes }) => {
     const maxY = Math.max(padding, a.height - b.height - padding);
 
     return { padding, maxX, maxY, arenaRect: a };
-  };
+  }, []);
 
-  const randomPosFarFromPointer = (clientX, clientY) => {
+  /* ---------------- pick a far position (stable) ---------------- */
+  const randomPosFarFromPointer = useCallback((clientX, clientY) => {
     const bounds = getBounds();
-    if (!bounds) return;
+    if (!bounds) return { x: 12, y: 70 };
 
     const { padding, maxX, maxY, arenaRect } = bounds;
 
@@ -49,20 +51,21 @@ const SurpriseGate = ({ onYes }) => {
     const px = clientX - arenaRect.left;
     const py = clientY - arenaRect.top;
 
-    // Choose a position on the opposite side (and add randomness)
-    const baseX = px < arenaRect.width / 2 ? maxX : padding;
-    const baseY = py < arenaRect.height / 2 ? maxY : padding;
+    // go opposite side
+    const targetX = px < arenaRect.width / 2 ? maxX : padding;
+    const targetY = py < arenaRect.height / 2 ? maxY : padding;
 
-    const jitterX = (Math.random() - 0.5) * 50;
-    const jitterY = (Math.random() - 0.5) * 40;
+    // playful jitter
+    const jitterX = (Math.random() - 0.5) * 40;
+    const jitterY = (Math.random() - 0.5) * 30;
 
-    const x = clamp(baseX + jitterX, padding, maxX);
-    const y = clamp(baseY + jitterY, padding, maxY);
+    return {
+      x: clamp(targetX + jitterX, padding, maxX),
+      y: clamp(targetY + jitterY, padding, maxY),
+    };
+  }, [getBounds]);
 
-    setNoPos({ x, y });
-  };
-
-  // Move "No" when pointer gets close (not only when hovering on it)
+  /* ---------------- Move "No" when pointer gets close ---------------- */
   useEffect(() => {
     const arena = arenaRef.current;
     if (!arena) return;
@@ -78,7 +81,16 @@ const SurpriseGate = ({ onYes }) => {
       const cx = e.clientX;
       const cy = e.clientY;
 
-      // distance from pointer to center of "No"
+      // pointer must be inside arena
+      const insideArena =
+        cx >= arenaRect.left &&
+        cx <= arenaRect.right &&
+        cy >= arenaRect.top &&
+        cy <= arenaRect.bottom;
+
+      if (!insideArena) return;
+
+      // distance from pointer to center of No
       const nx = noRect.left + noRect.width / 2;
       const ny = noRect.top + noRect.height / 2;
 
@@ -86,25 +98,16 @@ const SurpriseGate = ({ onYes }) => {
       const dy = cy - ny;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      // Trigger when pointer is within this radius
       const triggerRadius = 90;
-
-      // Only move if pointer is inside arena AND close enough
-      const insideArena =
-        cx >= arenaRect.left &&
-        cx <= arenaRect.right &&
-        cy >= arenaRect.top &&
-        cy <= arenaRect.bottom;
-
-      if (insideArena && dist < triggerRadius) {
-        randomPosFarFromPointer(cx, cy);
+      if (dist < triggerRadius) {
+        setNoPos(randomPosFarFromPointer(cx, cy));
       }
     };
 
     const onTouchStart = (e) => {
       const t = e.touches?.[0];
       if (!t) return;
-      randomPosFarFromPointer(t.clientX, t.clientY);
+      setNoPos(randomPosFarFromPointer(t.clientX, t.clientY));
     };
 
     arena.addEventListener("mousemove", onMove);
@@ -114,13 +117,14 @@ const SurpriseGate = ({ onYes }) => {
       arena.removeEventListener("mousemove", onMove);
       arena.removeEventListener("touchstart", onTouchStart);
     };
-  }, []);
+  }, [getBounds, randomPosFarFromPointer]);
 
-  // Ensure No is always within bounds on resize/orientation change
+  /* ---------------- Keep No inside bounds on resize/orientation ---------------- */
   useEffect(() => {
     const onResize = () => {
       const bounds = getBounds();
       if (!bounds) return;
+
       setNoPos((p) => ({
         x: clamp(p.x, bounds.padding, bounds.maxX),
         y: clamp(p.y, bounds.padding, bounds.maxY),
@@ -129,7 +133,7 @@ const SurpriseGate = ({ onYes }) => {
 
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, []);
+  }, [getBounds]);
 
   const handleYes = (e) => {
     e.stopPropagation();
@@ -147,7 +151,6 @@ const SurpriseGate = ({ onYes }) => {
       <div className="gate-title">Are you ready for the surprise? 💖</div>
       <div className="gate-subtitle">Choose wisely 😌</div>
 
-      {/* arena is the safe area where No can run around */}
       <div className="gate-buttons" ref={arenaRef}>
         <motion.button
           ref={yesBtnRef}
@@ -163,7 +166,7 @@ const SurpriseGate = ({ onYes }) => {
           ref={noBtnRef}
           className="gate-no"
           animate={{ x: noPos.x, y: noPos.y }}
-          transition={{ type: "spring", stiffness: 300, damping: 22 }}
+          transition={{ type: "spring", stiffness: 320, damping: 22 }}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -173,7 +176,10 @@ const SurpriseGate = ({ onYes }) => {
           No ❌
         </motion.button>
       </div>
-      <div className="gate-disclaimer">Something magical is about to unfold 🤭</div>
+
+      <div className="gate-disclaimer">
+        Something magical is about to unfold 🤭
+      </div>
     </motion.div>
   );
 };
