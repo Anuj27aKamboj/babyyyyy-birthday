@@ -15,8 +15,6 @@ const CakeMoment = ({ onBlow }) => {
       <div className="cake-area">
         <img src="/gallery/cake.png" alt="Birthday Cake" className="cake-img" />
 
-        {/* If your cake image already has 29, remove this */}
-        <div className="cake-age">29</div>
 
         {/* Candle (touching cake) */}
         <div className="candle">
